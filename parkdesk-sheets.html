@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ParkDesk — Gestionale Parcheggio</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;--surface3:#1e232b;
+    --border:#252b35;--accent:#f0c040;--accent2:#3b82f6;--accent3:#10b981;
+    --danger:#ef4444;--warn:#f97316;--text:#e8ecf0;--muted:#6b7280;--muted2:#9ca3af;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+  /* CONFIG BANNER */
+  .config-banner{background:rgba(240,192,64,.1);border:1px solid rgba(240,192,64,.3);border-radius:10px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:14px;font-size:13px;}
+  .config-banner.ok{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);}
+  .config-banner .ico{font-size:20px;flex-shrink:0;}
+  .config-banner a{color:var(--accent);text-decoration:underline;cursor:pointer;}
+
+  /* SIDEBAR */
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;padding:24px 0;}
+  .logo{padding:0 20px 28px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.5px;}
+  .logo span{color:var(--accent);}
+  .logo small{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:400;letter-spacing:1px;margin-top:2px;}
+  .nav{flex:1;padding:16px 0;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:13.5px;color:var(--muted2);transition:all .2s;border-left:3px solid transparent;font-weight:500;}
+  .nav-item:hover{color:var(--text);background:var(--surface2);}
+  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(240,192,64,.06);}
+  .nav-item .ico{font-size:16px;width:20px;text-align:center;}
+  .sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
+  .sync-indicator{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:4px;transition:.3s;}
+  .sync-indicator.ok{background:var(--accent3);}
+  .sync-indicator.err{background:var(--danger);}
+  .sync-indicator.syncing{background:var(--accent);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  /* MAIN */
+  .main{margin-left:220px;min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar h1{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;}
+  .topbar-right{display:flex;align-items:center;gap:12px;}
+  .badge-occ{background:rgba(240,192,64,.15);color:var(--accent);padding:4px 12px;border-radius:20px;font-size:12px;font-family:'DM Mono',monospace;font-weight:500;}
+  .btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .2s;}
+  .btn-primary{background:var(--accent);color:#000;}
+  .btn-primary:hover{background:#ffd35a;}
+  .btn-ghost{background:transparent;color:var(--muted2);border:1px solid var(--border);}
+  .btn-ghost:hover{background:var(--surface2);color:var(--text);}
+  .btn-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3);}
+  .btn-danger:hover{background:rgba(239,68,68,.25);}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:6px;}
+
+  .content{padding:28px 32px;flex:1;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* KPI */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .kpi-card.yellow::before{background:var(--accent);}
+  .kpi-card.blue::before{background:var(--accent2);}
+  .kpi-card.green::before{background:var(--accent3);}
+  .kpi-card.red::before{background:var(--danger);}
+  .kpi-label{font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:8px;}
+  .kpi-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;line-height:1;margin-bottom:4px;}
+  .kpi-sub{font-size:12px;color:var(--muted2);}
+
+  /* CALENDAR */
+  .calendar-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+  .cal-nav{display:flex;gap:8px;}
+  .cal-nav button{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:.2s;}
+  .cal-nav button:hover{background:var(--surface3);}
+  .cal-month-label{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;}
+  .cal-view-toggle{display:flex;margin-left:auto;gap:4px;background:var(--surface2);border-radius:8px;padding:4px;border:1px solid var(--border);}
+  .cal-view-toggle button{background:transparent;border:none;color:var(--muted2);padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:500;transition:.2s;}
+  .cal-view-toggle button.active{background:var(--surface3);color:var(--text);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:10px;overflow:hidden;}
+  .cal-day-header{background:var(--surface2);padding:10px;text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.5px;}
+  .cal-cell{background:var(--surface);min-height:90px;padding:8px;cursor:pointer;transition:.15s;position:relative;}
+  .cal-cell:hover{background:var(--surface2);}
+  .cal-cell.today{background:rgba(240,192,64,.07);}
+  .cal-cell.other-month{opacity:.35;}
+  .cal-day-num{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted2);margin-bottom:4px;}
+  .cal-cell.today .cal-day-num{color:var(--accent);font-weight:600;}
+  .cal-event{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+  .cal-event.entry{background:rgba(16,185,129,.2);color:#34d399;}
+  .cal-event.exit{background:rgba(239,68,68,.2);color:#f87171;}
+  .cal-event.ongoing{background:rgba(59,130,246,.2);color:#93c5fd;}
+  .occ-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--border);}
+  .occ-bar-fill{height:100%;transition:width .3s;}
+
+  /* TABLE */
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .table-toolbar{padding:16px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+  .search-box{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:.2s;}
+  .search-box:focus{border-color:var(--accent);}
+  .filter-select{background:var(--surface2);border:1px solid var(--border);color:var(--muted2);padding:8px 12px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;cursor:pointer;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:12px 16px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface2);}
+  td{padding:13px 16px;font-size:13px;border-bottom:1px solid rgba(37,43,53,.6);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--surface2);}
+  .plate-tag{font-family:'DM Mono',monospace;background:var(--surface3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;font-size:12px;letter-spacing:1px;}
+  .status-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:'DM Mono',monospace;}
+  .status-pill.active{background:rgba(16,185,129,.15);color:#34d399;}
+  .status-pill.pending{background:rgba(249,115,22,.15);color:var(--warn);}
+  .status-pill.completed{background:rgba(107,114,128,.15);color:var(--muted2);}
+  .status-pill.reserved{background:rgba(59,130,246,.15);color:#93c5fd;}
+  .action-btns{display:flex;gap:6px;}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:200;display:none;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:540px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.5);}
+  .modal-header{padding:24px 28px 0;display:flex;align-items:center;justify-content:space-between;}
+  .modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px;border-radius:4px;transition:.2s;}
+  .modal-close:hover{color:var(--text);background:var(--surface2);}
+  .modal-body{padding:24px 28px;}
+  .modal-footer{padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border);}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  .form-row.full{grid-template-columns:1fr;}
+  .form-group{display:flex;flex-direction:column;gap:6px;}
+  .form-label{font-size:11px;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase;font-family:'DM Mono',monospace;}
+  .form-input,.form-select,.form-textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:.2s;}
+  .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+  .form-textarea{resize:vertical;min-height:80px;}
+  .divider{height:1px;background:var(--border);margin:20px 0;}
+  .section-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:12px;}
+
+  /* STATS */
+  .stats-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px;}
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;}
+  .chart-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:20px;}
+  .bar-chart{display:flex;flex-direction:column;gap:10px;}
+  .bar-row{display:flex;align-items:center;gap:12px;}
+  .bar-label{font-size:12px;color:var(--muted2);width:60px;text-align:right;font-family:'DM Mono',monospace;}
+  .bar-track{flex:1;background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+  .bar-val{font-size:11px;color:var(--muted2);width:40px;font-family:'DM Mono',monospace;}
+
+  /* SPOTS */
+  .spots-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-top:16px;}
+  .spot-cell{aspect-ratio:1;border-radius:5px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;font-weight:600;}
+  .spot-cell.free{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#34d399;}
+  .spot-cell.occupied{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#f87171;}
+  .spot-cell.reserved{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);color:#93c5fd;}
+  .spot-legend{display:flex;gap:20px;margin-top:14px;}
+  .spot-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2);}
+  .spot-dot{width:10px;height:10px;border-radius:2px;}
+
+  /* API SECTION */
+  .api-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+  .api-section-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .api-section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;}
+  .api-section-body{padding:20px;}
+  .code-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'DM Mono',monospace;font-size:12px;color:#a5b4fc;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);}
+  .toggle-row:last-child{border-bottom:none;}
+  .toggle-info{display:flex;flex-direction:column;gap:3px;}
+  .toggle-name{font-size:13px;font-weight:500;}
+  .toggle-desc{font-size:12px;color:var(--muted);}
+  .toggle{position:relative;width:40px;height:22px;}
+  .toggle input{opacity:0;width:0;height:0;}
+  .toggle-slider{position:absolute;inset:0;background:var(--surface3);border-radius:22px;cursor:pointer;transition:.3s;border:1px solid var(--border);}
+  .toggle-slider::before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:var(--muted);border-radius:50%;transition:.3s;}
+  .toggle input:checked+.toggle-slider{background:rgba(240,192,64,.2);border-color:var(--accent);}
+  .toggle input:checked+.toggle-slider::before{transform:translateX(18px);background:var(--accent);}
+  .notif-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .notif-item:last-child{border-bottom:none;}
+  .notif-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .notif-icon.email{background:rgba(59,130,246,.15);}
+  .notif-icon.warn{background:rgba(249,115,22,.15);}
+  .notif-icon.ok{background:rgba(16,185,129,.15);}
+  .tariffa-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+  .tariffa-name{font-weight:600;font-size:14px;margin-bottom:4px;}
+  .tariffa-detail{font-size:12px;color:var(--muted2);font-family:'DM Mono',monospace;}
+  .tariffa-price{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent);}
+  .tariffa-unit{font-size:11px;color:var(--muted);}
+  .ribbon{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:8px;font-family:'DM Mono',monospace;background:rgba(240,192,64,.15);color:var(--accent);vertical-align:middle;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;font-size:13px;display:flex;align-items:center;gap:10px;max-width:320px;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .toast.success{border-left:3px solid var(--accent3);}
+  .toast.error{border-left:3px solid var(--danger);}
+  .toast.info{border-left:3px solid var(--accent2);}
+
+  /* LOADING */
+  .loading-overlay{position:fixed;inset:0;background:rgba(10,12,15,.8);z-index:500;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+  .loading-overlay.show{display:flex;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:var(--surface);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+  .empty-state .big-ico{font-size:48px;margin-bottom:12px;}
+
+  /* SETUP MODAL */
+  .setup-modal{background:var(--surface);border:1px solid var(--accent);border-radius:16px;width:560px;padding:32px;box-shadow:0 25px 60px rgba(0,0,0,.6);}
+  .setup-step{display:flex;gap:16px;margin-bottom:20px;align-items:flex-start;}
+  .step-num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#000;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Syne',sans-serif;}
+  .step-body{flex:1;}
+  .step-title{font-weight:600;font-size:14px;margin-bottom:4px;}
+  .step-desc{font-size:12px;color:var(--muted2);line-height:1.5;}
+  .step-desc code{background:var(--surface3);padding:1px 5px;border-radius:3px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent2);}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading-overlay" style="display:none">
+  <div class="spinner"></div>
+  <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted2)" id="loading-msg">Connessione a Google Sheets…</div>
+</div>
+
+<!-- SETUP MODAL (mostrato se non c'è URL configurato) -->
+<div class="modal-overlay" id="setup-overlay">
+  <div class="setup-modal">
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:6px;">⚙️ Configurazione iniziale</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:24px;">Segui questi passi una sola volta per collegare ParkDesk al tuo Google Sheet.</div>
+
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Crea un Google Sheet</div>
+        <div class="step-desc">Apri <a href="https://sheets.google.com" target="_blank" style="color:var(--accent)">sheets.google.com</a> con l'account dedicato e crea un foglio vuoto. Puoi chiamarlo <code>ParkDesk</code>.</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Apri Apps Script</div>
+        <div class="step-desc">Nel foglio vai su <code>Estensioni → Apps Script</code>. Cancella il codice esistente e incolla il contenuto del file <code>apps-script.js</code> che hai scaricato insieme a questo HTML.</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Deploy come Web App</div>
+        <div class="step-desc">Clicca <code>Distribuisci → Nuova distribuzione → App Web</code>. Imposta <code>Esegui come: Me</code> e <code>Chi ha accesso: Chiunque</code>. Clicca Distribuisci e copia l'URL.</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Incolla l'URL qui sotto</div>
+        <div class="step-desc">Poi clicca <strong>Connetti e Inizializza</strong> — ParkDesk creerà automaticamente i fogli e le tariffe di default.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <input class="form-input" id="setup-url" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1;">
+      <button class="btn btn-primary" onclick="setupConnect()">🔗 Connetti</button>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--muted);">L'URL viene salvato solo nel browser locale (localStorage). Non viene condiviso con nessuno.</div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">Park<span>Desk</span><small>GESTIONALE PARCHEGGIO</small></div>
+  <nav class="nav">
+    <div class="nav-item active" onclick="switchView('dashboard',this)"><span class="ico">📊</span> Dashboard</div>
+    <div class="nav-item" onclick="switchView('calendar',this)"><span class="ico">📅</span> Calendario</div>
+    <div class="nav-item" onclick="switchView('prenotazioni',this)"><span class="ico">🚗</span> Prenotazioni</div>
+    <div class="nav-item" onclick="switchView('posti',this)"><span class="ico">🅿️</span> Mappa Posti</div>
+    <div class="nav-item" onclick="switchView('tariffe',this)"><span class="ico">💶</span> Tariffe</div>
+    <div class="nav-item" onclick="switchView('statistiche',this)"><span class="ico">📈</span> Statistiche</div>
+    <div class="nav-item" onclick="switchView('integrations',this)"><span class="ico">🔌</span> Email / API</div>
+    <div class="nav-item" onclick="switchView('notifiche',this)"><span class="ico">🔔</span> Notifiche</div>
+  </nav>
+  <div class="sidebar-footer">
+    <span class="sync-indicator" id="sync-dot"></span><span id="sync-label">Non connesso</span><br>
+    <span id="clock">--:--</span> · <span id="today-date">--/--/----</span>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <h1 id="page-title">Dashboard</h1>
+    <div class="topbar-right">
+      <span class="badge-occ" id="occ-badge">⬤ 0 / 80 occupati</span>
+      <button class="btn btn-ghost btn-sm" onclick="syncAll()" title="Sincronizza con Google Sheets">🔄 Sync</button>
+      <button class="btn btn-primary" onclick="openModal('new')">+ Nuova Prenotazione</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div id="config-banner-wrap"></div>
+      <div class="kpi-row">
+        <div class="kpi-card yellow"><div class="kpi-label">Prenotazioni Oggi</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">entrate previste</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Posti Occupati</div><div class="kpi-value" id="kpi-occ">0</div><div class="kpi-sub">su 80 totali</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Fatturato Mese</div><div class="kpi-value" id="kpi-revenue">€0</div><div class="kpi-sub">mese corrente</div></div>
+        <div class="kpi-card red"><div class="kpi-label">In Scadenza 24h</div><div class="kpi-value" id="kpi-expiring">0</div><div class="kpi-sub">uscite previste</div></div>
+      </div>
+      <div class="stats-grid">
+        <div class="chart-card"><div class="chart-title">Prenotazioni recenti</div><div id="dash-recent-list"><div class="empty-state"><div class="big-ico">🔄</div><p>Caricamento…</p></div></div></div>
+        <div class="chart-card"><div class="chart-title">Occupazione per fascia oraria</div><div class="bar-chart" id="hourly-chart"></div></div>
+      </div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div class="view" id="view-calendar">
+      <div class="calendar-header">
+        <div class="cal-nav"><button onclick="calPrev()">‹</button><button onclick="calNext()">›</button></div>
+        <span class="cal-month-label" id="cal-month-label">—</span>
+        <div class="cal-view-toggle">
+          <button class="active" onclick="setCalView('month',this)">Mese</button>
+          <button onclick="setCalView('week',this)">Settimana</button>
+        </div>
+        <button class="btn btn-primary" style="margin-left:12px" onclick="openModal('new')">+ Nuova</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- PRENOTAZIONI -->
+    <div class="view" id="view-prenotazioni">
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <input class="search-box" placeholder="🔍  Cerca per targa, cliente…" oninput="filterTable(this.value)">
+          <select class="filter-select" onchange="filterStatus(this.value)">
+            <option value="">Tutti gli stati</option>
+            <option value="active">Attivi</option>
+            <option value="reserved">Prenotati</option>
+            <option value="completed">Completati</option>
+            <option value="pending">In attesa</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="syncAll()">🔄 Sync</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Cliente</th><th>Targa</th><th>Posto</th><th>Entrata</th><th>Uscita</th><th>Importo</th><th>Stato</th><th>Azioni</th></tr></thead>
+          <tbody id="bookings-tbody"><tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Caricamento…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MAPPA POSTI -->
+    <div class="view" id="view-posti">
+      <div class="chart-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="chart-title">Mappa Posti — Vista in tempo reale</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted2)" id="spots-summary">—</div>
+        </div>
+        <div class="spot-legend">
+          <div class="spot-legend-item"><div class="spot-dot" style="background:rgba(16,185,129,.4)"></div> Libero</div>
+          <div class="spot-legend-item"><div class="spot-dot" style="background:rgba(239,68,68,.4)"></div> Occupato</div>
+          <div class="spot-legend-item"><div class="spot-dot" style="background:rgba(59,130,246,.4)"></div> Riservato</div>
+        </div>
+        <div class="spots-grid" id="spots-grid"></div>
+      </div>
+    </div>
+
+    <!-- TARIFFE -->
+    <div class="view" id="view-tariffe">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:18px">Gestione Tariffe</div>
+        <button class="btn btn-primary" onclick="openTariffaModal()">+ Aggiungi Tariffa</button>
+      </div>
+      <div id="tariffe-list"></div>
+    </div>
+
+    <!-- STATISTICHE -->
+    <div class="view" id="view-statistiche">
+      <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
+        <div class="kpi-card yellow"><div class="kpi-label">Tasso Occupazione</div><div class="kpi-value" id="stat-occ-rate">0%</div><div class="kpi-sub">attuale</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Durata Media Sosta</div><div class="kpi-value" id="stat-avg-dur">0h</div><div class="kpi-sub">per prenotazione</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Ricavo Medio/Giorno</div><div class="kpi-value" id="stat-daily-rev">€0</div><div class="kpi-sub">mese corrente</div></div>
+      </div>
+      <div class="stats-grid">
+        <div class="chart-card"><div class="chart-title">Prenotazioni per stato</div><div class="bar-chart" id="stato-chart"></div></div>
+        <div class="chart-card"><div class="chart-title">Distribuzione per tariffa</div><div class="bar-chart" id="rate-dist-chart"></div></div>
+      </div>
+    </div>
+
+    <!-- EMAIL / API -->
+    <div class="view" id="view-integrations">
+      <div class="api-section">
+        <div class="api-section-header"><div class="api-section-title">⚙️ Connessione Google Sheets</div><span class="status-pill active" id="sheets-status-pill">Connesso</span></div>
+        <div class="api-section-body">
+          <div class="form-group" style="margin-bottom:14px">
+            <label class="form-label">Apps Script URL</label>
+            <div style="display:flex;gap:10px">
+              <input class="form-input" id="api-url-display" style="flex:1;font-family:'DM Mono',monospace;font-size:12px;" placeholder="https://script.google.com/macros/s/…/exec">
+              <button class="btn btn-primary" onclick="updateApiUrl()">Aggiorna</button>
+              <button class="btn btn-ghost" onclick="testConnection()">🔗 Test</button>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="resetSetup()">🔄 Riconfigura da zero</button>
+        </div>
+      </div>
+
+      <div class="api-section">
+        <div class="api-section-header"><div class="api-section-title">📧 Importazione da Email / Testo</div></div>
+        <div class="api-section-body">
+          <p style="font-size:13px;color:var(--muted2);margin-bottom:16px">Incolla il testo di una email di prenotazione o un JSON — ParkDesk estrarrà i dati e precompilerà il form.</p>
+          <div class="section-label">Formati supportati</div>
+          <div class="code-block" style="margin-bottom:14px;font-size:11px">// JSON
+{"cliente":"Mario Rossi","targa":"AB123CD","entrata":"2025-06-15T08:00","uscita":"2025-06-18T20:00","email":"<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="503d3122393f10353d31393c7e333f3d">[email&#160;protected]</a>"}
+
+// Testo strutturato (da email)
+Cliente: Mario Rossi
+Targa: AB123CD
+Entrata: 2025-06-15 08:00
+Uscita: 2025-06-18 20:00
+Email: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d1bcb0a3b8be91b4bcb0b8bdffb2bebc">[email&#160;protected]</a></div>
+          <textarea class="form-textarea" id="email-paste-area" placeholder="Incolla qui testo email o JSON…" style="width:100%;min-height:110px"></textarea>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="parseEmailText()">🔍 Analizza e Importa</button>
+        </div>
+      </div>
+
+      <div class="api-section">
+        <div class="api-section-header"><div class="api-section-title">🔌 Simula chiamata API in entrata</div></div>
+        <div class="api-section-body">
+          <textarea class="form-textarea" id="api-test-body" style="width:100%;font-family:'DM Mono',monospace;font-size:12px;min-height:140px">{
+  "cliente": "Test Cliente",
+  "targa": "EF456GH",
+  "email": "test@email.com",
+  "telefono": "+39 333 1234567",
+  "entrata": "2025-06-20T09:00:00",
+  "uscita": "2025-06-22T18:00:00",
+  "tariffa_id": "t2",
+  "note": "Arrivo da API test"
+}</textarea>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="simulateApiCall()">▶ Simula Ricezione</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFICHE -->
+    <div class="view" id="view-notifiche">
+      <div class="chart-card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="chart-title">Centro Notifiche</div>
+          <button class="btn btn-ghost btn-sm" onclick="syncNotifiche()">🔄 Aggiorna</button>
+        </div>
+        <div id="notifiche-list" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- MODAL PRENOTAZIONE -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title-text">Nuova Prenotazione</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-label">Dati Cliente</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nome e Cognome *</label><input class="form-input" id="f-cliente" placeholder="Mario Rossi"></div>
+        <div class="form-group"><label class="form-label">Targa *</label><input class="form-input" id="f-targa" placeholder="AB123CD" oninput="this.value=this.value.toUpperCase()"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" type="email"></div>
+        <div class="form-group"><label class="form-label">Telefono</label><input class="form-input" id="f-telefono"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">Periodo & Posto</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Entrata *</label><input class="form-input" id="f-entrata" type="datetime-local"></div>
+        <div class="form-group"><label class="form-label">Uscita *</label><input class="form-input" id="f-uscita" type="datetime-local"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Numero Posto</label><select class="form-select" id="f-posto"><option value="">Auto-assegna</option></select></div>
+        <div class="form-group"><label class="form-label">Tariffa</label><select class="form-select" id="f-tariffa" onchange="calcImporto()"><option value="">Seleziona</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Importo (€)</label><input class="form-input" id="f-importo" type="number" step="0.01"></div>
+        <div class="form-group"><label class="form-label">Stato</label><select class="form-select" id="f-stato"><option value="reserved">Prenotato</option><option value="active">Attivo</option><option value="pending">In attesa</option></select></div>
+      </div>
+      <div class="form-row full"><div class="form-group"><label class="form-label">Note</label><textarea class="form-textarea" id="f-note"></textarea></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveBooking()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TARIFFA -->
+<div class="modal-overlay" id="modal-tariffa-overlay" onclick="if(event.target===this)closeTariffaModal()">
+  <div class="modal" style="width:400px">
+    <div class="modal-header"><div class="modal-title">Nuova Tariffa</div><button class="modal-close" onclick="closeTariffaModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row full"><div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="tf-nome"></div></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Prezzo (€)</label><input class="form-input" id="tf-prezzo" type="number" step="0.5"></div>
+        <div class="form-group"><label class="form-label">Unità</label><select class="form-select" id="tf-unita"><option value="ora">/ ora</option><option value="giorno">/ giorno</option><option value="settimana">/ settimana</option><option value="forfait">forfait</option></select></div>
+      </div>
+      <div class="form-row full"><div class="form-group"><label class="form-label">Descrizione</label><input class="form-input" id="tf-desc"></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTariffaModal()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveTariffa()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const TOTAL_SPOTS = 80;
+const LS_KEY_URL  = 'pd_api_url';
+
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycby-LyW6FacelY52Pe4gb8hHwMinxekeQYgcjYyVzyW__yRLIMrYND1pTjc0VoEYgxDppg/exec';
+let API_URL = localStorage.getItem(LS_KEY_URL) || DEFAULT_API_URL;
+let bookings  = [];
+let tariffe   = [];
+let notifiche = [];
+let editingId = null;
+let calDate   = new Date();
+let calView   = 'month';
+let currentFilter = { text:'', status:'' };
+
+// ═══════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('today-date').textContent = now.toLocaleDateString('it-IT');
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ═══════════════════════════════════════════════
+// SYNC STATUS
+// ═══════════════════════════════════════════════
+function setSyncStatus(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-indicator ' + state;
+  lbl.textContent = label;
+}
+
+// ═══════════════════════════════════════════════
+// API HELPERS
+// ═══════════════════════════════════════════════
+async function apiGet(params) {
+  if (!API_URL) throw new Error('API non configurata');
+  const url = API_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Errore HTTP ' + res.status);
+  return res.json();
+}
+
+// Tutto via GET per evitare problemi CORS con Apps Script
+async function apiPost(body) {
+  if (!API_URL) throw new Error('API non configurata');
+  const action = body.action;
+  const params = { action };
+  // Passa i dati come JSON encodato nel parametro 'data'
+  if (body.data)  params.data = encodeURIComponent(JSON.stringify(body.data));
+  if (body.id)    params.id   = body.id;
+  const url = API_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Errore HTTP ' + res.status);
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════════
+function checkSetup() {
+  // URL incorporato nel codice
+  if (!API_URL) API_URL = DEFAULT_API_URL;
+  if (!API_URL) {
+    document.getElementById('setup-overlay').classList.add('open');
+  } else {
+    document.getElementById('api-url-display').value = API_URL;
+    syncAll();
+  }
+}
+
+async function setupConnect() {
+  const url = document.getElementById('setup-url').value.trim();
+  if (!url || !url.includes('script.google.com')) {
+    toast('Inserisci un URL Apps Script valido', 'error'); return;
+  }
+  API_URL = url;
+  localStorage.setItem(LS_KEY_URL, API_URL);
+  document.getElementById('api-url-display').value = API_URL;
+  setSyncStatus('syncing', 'Inizializzazione…');
+  try {
+    const r = await apiGet({ action: 'initSheets' });
+    if (!r.ok) throw new Error(r.error);
+    document.getElementById('setup-overlay').classList.remove('open');
+    hideLoading();
+    toast('Connesso e fogli inizializzati ✓', 'success');
+    await syncAll();
+  } catch(e) {
+    hideLoading();
+    toast('Errore: ' + e.message, 'error');
+  }
+}
+
+function updateApiUrl() {
+  const url = document.getElementById('api-url-display').value.trim();
+  if (!url) return;
+  API_URL = url;
+  localStorage.setItem(LS_KEY_URL, API_URL);
+  toast('URL aggiornato', 'success');
+}
+
+function resetSetup() {
+  if (!confirm('Riconfigurare? I dati nel browser verranno rimossi ma rimangono su Google Sheets.')) return;
+  localStorage.removeItem(LS_KEY_URL);
+  API_URL = '';
+  bookings=[]; tariffe=[]; notifiche=[];
+  checkSetup();
+}
+
+async function testConnection() {
+  
+  try {
+    const r = await apiGet({ action: 'ping' });
+    hideLoading();
+    toast('Connessione OK ✓', 'success');
+    setSyncStatus('ok', 'Connesso');
+  } catch(e) {
+    hideLoading();
+    toast('Errore: ' + e.message, 'error');
+    setSyncStatus('err', 'Errore');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SYNC
+// ═══════════════════════════════════════════════
+async function syncAll(quiet=false) {
+  if (!API_URL) return;
+  setSyncStatus('syncing', 'Sync in corso…');
+  try {
+    const r = await apiGet({ action: 'getAll' });
+    if (!r.ok) throw new Error(r.error || 'Errore sync');
+    bookings  = r.bookings  || [];
+    tariffe   = r.tariffe   || [];
+    notifiche = r.notifiche || [];
+    setSyncStatus('ok', 'Sincronizzato');
+    if (!quiet) toast('Dati aggiornati da Google Sheets', 'success');
+    refreshCurrentView();
+    updateOccBadge();
+  } catch(e) {
+    setSyncStatus('err', 'Errore sync');
+    if (!quiet) toast('Errore sync: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function syncNotifiche() {
+  try {
+    const r = await apiGet({ action: 'getNotifiche' });
+    if (r.ok) { notifiche = r.notifiche || []; renderNotifiche(); }
+  } catch(e) { toast('Errore caricamento notifiche', 'error'); }
+}
+
+// Sync automatico ogni 60 secondi
+setInterval(() => syncAll(true), 60000);
+
+// ═══════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════
+function switchView(v, el) {
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if (el) el.classList.add('active');
+  const titles={dashboard:'Dashboard',calendar:'Calendario',prenotazioni:'Prenotazioni',posti:'Mappa Posti',tariffe:'Tariffe',statistiche:'Statistiche',integrations:'Email / API',notifiche:'Notifiche'};
+  document.getElementById('page-title').textContent = titles[v]||v;
+  if (v==='calendar') renderCalendar();
+  if (v==='posti') renderSpotMap();
+  if (v==='tariffe') renderTariffe();
+  if (v==='statistiche') renderStats();
+  if (v==='prenotazioni') renderTable();
+  if (v==='dashboard') renderDashboard();
+  if (v==='notifiche') renderNotifiche();
+}
+
+function refreshCurrentView() {
+  const active = document.querySelector('.view.active');
+  if (!active) return;
+  const id = active.id.replace('view-','');
+  switchView(id, null);
+}
+
+// ═══════════════════════════════════════════════
+// OCC BADGE
+// ═══════════════════════════════════════════════
+function updateOccBadge() {
+  const now = new Date();
+  const n = bookings.filter(b => b.stato==='active' || (b.stato==='reserved' && new Date(b.entrata)<=now && new Date(b.uscita)>=now)).length;
+  document.getElementById('occ-badge').textContent = `⬤ ${n} / ${TOTAL_SPOTS} occupati`;
+}
+
+// ═══════════════════════════════════════════════
+// MODAL PRENOTAZIONE
+// ═══════════════════════════════════════════════
+function openModal(mode, id) {
+  editingId = id || null;
+  document.getElementById('modal-title-text').textContent = id ? 'Modifica Prenotazione' : 'Nuova Prenotazione';
+  // tariffe
+  const ts = document.getElementById('f-tariffa');
+  ts.innerHTML = '<option value="">Seleziona tariffa</option>' + tariffe.map(t=>`<option value="${t.id}">${t.nome} — €${t.prezzo}/${t.unita}</option>`).join('');
+  // posti
+  const ps = document.getElementById('f-posto');
+  const occupied = new Set(bookings.filter(b=>b.stato!=='completed'&&b.id!==id).map(b=>parseInt(b.posto)).filter(Boolean));
+  ps.innerHTML = '<option value="">Auto-assegna</option>' + Array.from({length:TOTAL_SPOTS},(_,i)=>i+1).map(n=>`<option value="${n}" ${occupied.has(n)?'disabled':''}>Posto ${n}${occupied.has(n)?' (occupato)':''}</option>`).join('');
+
+  if (id) {
+    const b = bookings.find(x=>x.id===id);
+    if (b) {
+      ['cliente','targa','email','telefono','note'].forEach(f => document.getElementById('f-'+f).value = b[f]||'');
+      document.getElementById('f-entrata').value = b.entrata?.slice(0,16)||'';
+      document.getElementById('f-uscita').value  = b.uscita?.slice(0,16)||'';
+      document.getElementById('f-posto').value   = b.posto||'';
+      document.getElementById('f-tariffa').value = b.tariffaid||'';
+      document.getElementById('f-importo').value = b.importo||'';
+      document.getElementById('f-stato').value   = b.stato||'reserved';
+    }
+  } else {
+    ['f-cliente','f-targa','f-email','f-telefono','f-importo','f-note'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-posto').value=''; document.getElementById('f-tariffa').value=''; document.getElementById('f-stato').value='reserved';
+    const now=new Date(); now.setMinutes(0,0,0);
+    document.getElementById('f-entrata').value=now.toISOString().slice(0,16);
+    const end=new Date(now); end.setDate(end.getDate()+1);
+    document.getElementById('f-uscita').value=end.toISOString().slice(0,16);
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+function calcImporto() {
+  const tid=document.getElementById('f-tariffa').value;
+  const t=tariffe.find(x=>x.id===tid); if (!t) return;
+  const entry=new Date(document.getElementById('f-entrata').value);
+  const exit=new Date(document.getElementById('f-uscita').value);
+  if (isNaN(entry)||isNaN(exit)) return;
+  const hours=(exit-entry)/3600000;
+  let amount=0;
+  if (t.unita==='ora') amount=Math.ceil(hours)*parseFloat(t.prezzo);
+  else if (t.unita==='giorno') amount=Math.ceil(hours/24)*parseFloat(t.prezzo);
+  else if (t.unita==='settimana') amount=Math.ceil(hours/168)*parseFloat(t.prezzo);
+  else amount=parseFloat(t.prezzo);
+  document.getElementById('f-importo').value=amount.toFixed(2);
+}
+document.getElementById('f-entrata').addEventListener('change',calcImporto);
+document.getElementById('f-uscita').addEventListener('change',calcImporto);
+
+async function saveBooking() {
+  const cliente=document.getElementById('f-cliente').value.trim();
+  const targa=document.getElementById('f-targa').value.trim();
+  const entrata=document.getElementById('f-entrata').value;
+  const uscita=document.getElementById('f-uscita').value;
+  if (!cliente||!targa||!entrata||!uscita) { toast('Compila i campi obbligatori','error'); return; }
+
+  let posto=parseInt(document.getElementById('f-posto').value)||null;
+  if (!posto) {
+    const occ=new Set(bookings.filter(b=>b.stato!=='completed'&&b.id!==editingId).map(b=>parseInt(b.posto)).filter(Boolean));
+    for (let i=1;i<=TOTAL_SPOTS;i++) { if (!occ.has(i)) { posto=i; break; } }
+  }
+
+  const data = {
+    id: editingId||String(Date.now()),
+    cliente, targa,
+    email:     document.getElementById('f-email').value,
+    telefono:  document.getElementById('f-telefono').value,
+    posto:     posto||'',
+    entrata, uscita,
+    importo:   parseFloat(document.getElementById('f-importo').value)||0,
+    stato:     document.getElementById('f-stato').value,
+    tariffa_id:document.getElementById('f-tariffa').value,
+    note:      document.getElementById('f-note').value,
+    created:   editingId?(bookings.find(b=>b.id===editingId)?.created||new Date().toISOString()):new Date().toISOString()
+  };
+
+  const btn=document.getElementById('save-btn');
+  btn.textContent='Salvataggio…'; btn.disabled=true;
+  try {
+    const r = await apiPost({ action:'saveBooking', data });
+    if (!r.ok) throw new Error(r.error);
+    // notifica
+    await apiPost({ action:'addNotifica', data:{ ico:'📅', title: editingId?'Prenotazione aggiornata':'Nuova prenotazione', text:`${cliente} — ${targa} — Posto ${posto}`, type:'info' }});
+    toast(editingId?'Prenotazione aggiornata':'Prenotazione creata · Posto '+posto, 'success');
+    closeModal();
+    await syncAll(true);
+  } catch(e) {
+    toast('Errore salvataggio: '+e.message,'error');
+  } finally {
+    btn.textContent='💾 Salva'; btn.disabled=false;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════
+function renderTable() {
+  const list = bookings.filter(b => {
+    const txt=currentFilter.text.toLowerCase();
+    const ok1=!txt||b.cliente?.toLowerCase().includes(txt)||b.targa?.toLowerCase().includes(txt);
+    const ok2=!currentFilter.status||b.stato===currentFilter.status;
+    return ok1&&ok2;
+  });
+  const tbody=document.getElementById('bookings-tbody');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Nessuna prenotazione</td></tr>'; return; }
+  const labels={active:'Attivo',reserved:'Prenotato',completed:'Completato',pending:'In attesa'};
+  tbody.innerHTML=list.sort((a,b)=>new Date(b.created)-new Date(a.created)).map(b=>{
+    const ef=b.entrata?new Date(b.entrata).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+    const xf=b.uscita?new Date(b.uscita).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+    return `<tr>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">#${b.id.slice(-5)}</td>
+      <td><div style="font-weight:500">${b.cliente}</div><div style="font-size:11px;color:var(--muted)">${b.email||''}</div></td>
+      <td><span class="plate-tag">${b.targa}</span></td>
+      <td style="font-family:'DM Mono',monospace;color:var(--muted2)">${b.posto?'P'+b.posto:'—'}</td>
+      <td style="font-size:12px">${ef}</td><td style="font-size:12px">${xf}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--accent)">€${parseFloat(b.importo||0).toFixed(2)}</td>
+      <td><span class="status-pill ${b.stato}">${labels[b.stato]||b.stato}</span></td>
+      <td><div class="action-btns">
+        <button class="btn btn-ghost btn-sm" onclick="openModal('edit','${b.id}')">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="checkoutBooking('${b.id}')">✅</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBooking('${b.id}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+function filterTable(v) { currentFilter.text=v; renderTable(); }
+function filterStatus(v) { currentFilter.status=v; renderTable(); }
+
+async function deleteBooking(id) {
+  if (!confirm('Eliminare questa prenotazione?')) return;
+  try {
+    const r=await apiPost({action:'deleteBooking',id});
+    if (!r.ok) throw new Error(r.error);
+    toast('Prenotazione eliminata','error');
+    await syncAll(true);
+  } catch(e) { toast('Errore: '+e.message,'error'); }
+}
+
+async function checkoutBooking(id) {
+  const b=bookings.find(x=>x.id===id); if (!b) return;
+  b.stato='completed';
+  try {
+    await apiPost({action:'saveBooking',data:b});
+    await apiPost({action:'addNotifica',data:{ico:'✅',title:'Check-out completato',text:`${b.cliente} — ${b.targa}`,type:'ok'}});
+    toast('Check-out registrato','success');
+    await syncAll(true);
+  } catch(e) { toast('Errore: '+e.message,'error'); }
+}
+
+// ═══════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════
+const DAYS_IT=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+const MONTHS_IT=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+function calPrev(){ if(calView==='month') calDate.setMonth(calDate.getMonth()-1); else calDate.setDate(calDate.getDate()-7); renderCalendar(); }
+function calNext(){ if(calView==='month') calDate.setMonth(calDate.getMonth()+1); else calDate.setDate(calDate.getDate()+7); renderCalendar(); }
+function setCalView(v,btn){ calView=v; document.querySelectorAll('.cal-view-toggle button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderCalendar(); }
+
+function renderCalendar(){
+  document.getElementById('cal-month-label').textContent=MONTHS_IT[calDate.getMonth()]+' '+calDate.getFullYear();
+  const grid=document.getElementById('cal-grid'); grid.innerHTML='';
+  DAYS_IT.forEach(d=>{const h=document.createElement('div');h.className='cal-day-header';h.textContent=d;grid.appendChild(h);});
+  const y=calDate.getFullYear(),m=calDate.getMonth();
+  const first=new Date(y,m,1);
+  let sd=first.getDay(); if(sd===0) sd=7; sd--;
+  const dim=new Date(y,m+1,0).getDate();
+  const dip=new Date(y,m,0).getDate();
+  for(let i=0;i<42;i++){
+    let day,isOther=false,date;
+    if(i<sd){day=dip-sd+i+1;isOther=true;date=new Date(y,m-1,day);}
+    else if(i-sd>=dim){day=i-sd-dim+1;isOther=true;date=new Date(y,m+1,day);}
+    else{day=i-sd+1;date=new Date(y,m,day);}
+    const today=new Date(); const isToday=date.toDateString()===today.toDateString();
+    const cell=document.createElement('div');
+    cell.className='cal-cell'+(isOther?' other-month':'')+(isToday?' today':'');
+    const ds=date.toISOString().slice(0,10);
+    const dayB=bookings.filter(b=>ds>=b.entrata?.slice(0,10)&&ds<=b.uscita?.slice(0,10));
+    const occ=dayB.filter(b=>b.stato!=='completed').length;
+    const pct=Math.min(100,Math.round(occ/TOTAL_SPOTS*100));
+    const col=pct>70?'#ef4444':pct>40?'#f97316':'#10b981';
+    cell.innerHTML=`<div class="cal-day-num">${day}</div>`;
+    dayB.slice(0,3).forEach(b=>{
+      const isEntry=b.entrata?.slice(0,10)===ds, isExit=b.uscita?.slice(0,10)===ds;
+      const cls=isEntry&&isExit?'ongoing':isEntry?'entry':isExit?'exit':'ongoing';
+      const lbl=isEntry&&isExit?'↕':isEntry?'→':isExit?'←':'…';
+      cell.innerHTML+=`<div class="cal-event ${cls}" onclick="event.stopPropagation();openModal('edit','${b.id}')">${lbl} ${b.targa}</div>`;
+    });
+    if(dayB.length>3) cell.innerHTML+=`<div style="font-size:10px;color:var(--muted)">+${dayB.length-3} altri</div>`;
+    if(occ>0) cell.innerHTML+=`<div class="occ-bar"><div class="occ-bar-fill" style="width:${pct}%;background:${col}"></div></div>`;
+    cell.addEventListener('click',()=>openModal('new'));
+    grid.appendChild(cell);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SPOT MAP
+// ═══════════════════════════════════════════════
+function renderSpotMap(){
+  const now=new Date();
+  const occ=new Set(bookings.filter(b=>b.stato==='active'||(b.stato==='reserved'&&new Date(b.entrata)<=now&&new Date(b.uscita)>=now)).map(b=>parseInt(b.posto)).filter(Boolean));
+  const res=new Set(bookings.filter(b=>b.stato==='reserved'&&new Date(b.entrata)>now).map(b=>parseInt(b.posto)).filter(Boolean));
+  let free=0,occN=0,resN=0;
+  const grid=document.getElementById('spots-grid'); grid.innerHTML='';
+  for(let i=1;i<=TOTAL_SPOTS;i++){
+    const cell=document.createElement('div'); cell.className='spot-cell';
+    if(occ.has(i)){cell.classList.add('occupied');occN++;}
+    else if(res.has(i)){cell.classList.add('reserved');resN++;}
+    else{cell.classList.add('free');free++;}
+    cell.textContent='P'+i;
+    grid.appendChild(cell);
+  }
+  document.getElementById('spots-summary').textContent=`Liberi: ${free} · Occupati: ${occN} · Riservati: ${resN}`;
+}
+
+// ═══════════════════════════════════════════════
+// TARIFFE
+// ═══════════════════════════════════════════════
+function renderTariffe(){
+  const list=document.getElementById('tariffe-list');
+  list.innerHTML=tariffe.map(t=>`
+    <div class="tariffa-card">
+      <div><div class="tariffa-name">${t.nome}${t.default==='true'?'<span class="ribbon">Default</span>':''}</div><div class="tariffa-detail">${t.descrizione||''}</div></div>
+      <div style="display:flex;align-items:center;gap:20px">
+        <div style="text-align:right"><div class="tariffa-price">€${t.prezzo}</div><div class="tariffa-unit">/${t.unita}</div></div>
+        <button class="btn btn-danger btn-sm" onclick="deleteTariffa('${t.id}')">🗑️</button>
+      </div>
+    </div>`).join('')||'<div class="empty-state"><div class="big-ico">💶</div><p>Nessuna tariffa</p></div>';
+}
+function openTariffaModal(){document.getElementById('modal-tariffa-overlay').classList.add('open');}
+function closeTariffaModal(){document.getElementById('modal-tariffa-overlay').classList.remove('open');}
+async function saveTariffa(){
+  const nome=document.getElementById('tf-nome').value.trim();
+  const prezzo=parseFloat(document.getElementById('tf-prezzo').value);
+  if(!nome||isNaN(prezzo)){toast('Compila tutti i campi','error');return;}
+  const data={id:'t'+Date.now(),nome,prezzo,unita:document.getElementById('tf-unita').value,desc:document.getElementById('tf-desc').value};
+  try{
+    const r=await apiPost({action:'saveTariffa',data});
+    if(!r.ok) throw new Error(r.error);
+    toast('Tariffa salvata','success');
+    closeTariffaModal();
+    await syncAll(true);
+  }catch(e){toast('Errore: '+e.message,'error');}
+}
+async function deleteTariffa(id){
+  if(!confirm('Eliminare tariffa?')) return;
+  try{
+    const r=await apiPost({action:'deleteTariffa',id});
+    if(!r.ok) throw new Error(r.error);
+    toast('Tariffa eliminata','success');
+    await syncAll(true);
+  }catch(e){toast('Errore: '+e.message,'error');}
+}
+
+// ═══════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════
+function renderStats(){
+  const now=new Date();
+  const active=bookings.filter(b=>b.stato==='active').length;
+  const monthB=bookings.filter(b=>new Date(b.created||b.entrata).getMonth()===now.getMonth());
+  const monthRev=monthB.reduce((s,b)=>s+parseFloat(b.importo||0),0);
+  let totalH=0,cnt=0;
+  bookings.forEach(b=>{if(b.entrata&&b.uscita){totalH+=(new Date(b.uscita)-new Date(b.entrata))/3600000;cnt++;}});
+  document.getElementById('stat-occ-rate').textContent=Math.round(active/TOTAL_SPOTS*100)+'%';
+  document.getElementById('stat-avg-dur').textContent=(cnt?Math.round(totalH/cnt):0)+'h';
+  document.getElementById('stat-daily-rev').textContent='€'+(monthRev/30).toFixed(0);
+
+  // stato dist
+  const stati={active:0,reserved:0,completed:0,pending:0};
+  bookings.forEach(b=>stati[b.stato]=(stati[b.stato]||0)+1);
+  const tot=bookings.length||1;
+  const colors={active:'var(--accent3)',reserved:'var(--accent2)',completed:'var(--muted)',pending:'var(--warn)'};
+  const labels={active:'Attivi',reserved:'Prenotati',completed:'Completati',pending:'In attesa'};
+  document.getElementById('stato-chart').innerHTML=Object.entries(stati).map(([k,v])=>{
+    const pct=Math.round(v/tot*100);
+    return `<div class="bar-row"><div class="bar-label" style="font-size:11px">${labels[k]}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${colors[k]}"></div></div><div class="bar-val">${v}</div></div>`;
+  }).join('');
+
+  // tariffa dist
+  const tMap={};
+  bookings.forEach(b=>{const t=tariffe.find(x=>x.id===b.tariffaid);if(t)tMap[t.nome]=(tMap[t.nome]||0)+1;});
+  const tc=Object.values(tMap).reduce((a,b)=>a+b,0)||1;
+  const cols=['var(--accent)','var(--accent2)','var(--accent3)','var(--warn)','var(--danger)'];
+  document.getElementById('rate-dist-chart').innerHTML=Object.entries(tMap).map(([name,n],i)=>{
+    const pct=Math.round(n/tc*100);
+    return `<div class="bar-row"><div class="bar-label" style="font-size:11px">${name}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${cols[i%cols.length]}"></div></div><div class="bar-val">${pct}%</div></div>`;
+  }).join('')||'<div style="color:var(--muted);font-size:13px;padding:10px">Nessun dato</div>';
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+function renderDashboard(){
+  const now=new Date(); const ts=now.toISOString().slice(0,10);
+  document.getElementById('kpi-today').textContent=bookings.filter(b=>b.entrata?.slice(0,10)===ts).length;
+  document.getElementById('kpi-occ').textContent=bookings.filter(b=>b.stato==='active').length;
+  const mr=bookings.filter(b=>new Date(b.created||b.entrata).getMonth()===now.getMonth()).reduce((s,b)=>s+parseFloat(b.importo||0),0);
+  document.getElementById('kpi-revenue').textContent='€'+mr.toFixed(0);
+  document.getElementById('kpi-expiring').textContent=bookings.filter(b=>b.stato!=='completed'&&b.uscita&&new Date(b.uscita)>now&&new Date(b.uscita)<new Date(now.getTime()+86400000)).length;
+
+  const recent=[...bookings].sort((a,b)=>new Date(b.created)-new Date(a.created)).slice(0,6);
+  const el=document.getElementById('dash-recent-list');
+  if(!recent.length){el.innerHTML='<div class="empty-state"><div class="big-ico">🚗</div><p>Nessuna prenotazione</p></div>';return;}
+  const cols={active:'var(--accent3)',reserved:'var(--accent2)',completed:'var(--muted)',pending:'var(--warn)'};
+  el.innerHTML=recent.map(b=>`
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${cols[b.stato]||'var(--muted)'};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${b.cliente} <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted2)">${b.targa}</span></div>
+        <div style="font-size:11px;color:var(--muted)">${b.entrata?new Date(b.entrata).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'} → ${b.uscita?new Date(b.uscita).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;color:var(--accent);font-size:13px">€${parseFloat(b.importo||0).toFixed(2)}</div>
+    </div>`).join('');
+
+  updateOccBadge();
+}
+
+// ═══════════════════════════════════════════════
+// NOTIFICHE
+// ═══════════════════════════════════════════════
+function renderNotifiche(){
+  const el=document.getElementById('notifiche-list');
+  if(!notifiche.length){el.innerHTML='<div class="empty-state"><div class="big-ico">🔔</div><p>Nessuna notifica</p></div>';return;}
+  el.innerHTML=notifiche.map(n=>`
+    <div class="notif-item">
+      <div class="notif-icon ${n.tipo==='ok'?'ok':n.tipo==='email'?'email':'warn'}">${n.icona||'🔔'}</div>
+      <div><div style="font-size:13px;font-weight:500">${n.titolo}</div>
+      <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${n.testo} · ${n.timestamp?new Date(n.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</div></div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// EMAIL / API IMPORT
+// ═══════════════════════════════════════════════
+function parseEmailText(){
+  const text=document.getElementById('email-paste-area').value.trim();
+  if(!text){toast('Incolla prima il testo','error');return;}
+  let parsed=null;
+  try{parsed=JSON.parse(text);}catch(e){}
+  if(!parsed){
+    parsed={};
+    text.split('\n').forEach(l=>{
+      const m=l.match(/^(cliente|targa|email|telefono|entrata|uscita|note)\s*[:\-]\s*(.+)/i);
+      if(m) parsed[m[1].toLowerCase()]=m[2].trim();
+    });
+  }
+  if(parsed&&(parsed.targa||parsed.cliente)){
+    openModal('new');
+    setTimeout(()=>{
+      if(parsed.cliente) document.getElementById('f-cliente').value=parsed.cliente;
+      if(parsed.targa)   document.getElementById('f-targa').value=parsed.targa.toUpperCase();
+      if(parsed.email)   document.getElementById('f-email').value=parsed.email;
+      if(parsed.telefono)document.getElementById('f-telefono').value=parsed.telefono;
+      if(parsed.entrata) document.getElementById('f-entrata').value=parsed.entrata.replace(' ','T').slice(0,16);
+      if(parsed.uscita)  document.getElementById('f-uscita').value=parsed.uscita.replace(' ','T').slice(0,16);
+      if(parsed.note)    document.getElementById('f-note').value=parsed.note;
+      toast('Dati importati ✓','success');
+    },300);
+    document.getElementById('email-paste-area').value='';
+  }else{toast('Formato non riconosciuto','error');}
+}
+
+function simulateApiCall(){
+  try{
+    const data=JSON.parse(document.getElementById('api-test-body').value);
+    openModal('new');
+    setTimeout(()=>{
+      if(data.cliente) document.getElementById('f-cliente').value=data.cliente;
+      if(data.targa)   document.getElementById('f-targa').value=data.targa.toUpperCase();
+      if(data.email)   document.getElementById('f-email').value=data.email;
+      if(data.telefono)document.getElementById('f-telefono').value=data.telefono;
+      if(data.entrata) document.getElementById('f-entrata').value=data.entrata.slice(0,16);
+      if(data.uscita)  document.getElementById('f-uscita').value=data.uscita.slice(0,16);
+      if(data.note)    document.getElementById('f-note').value=data.note;
+      calcImporto();
+      toast('API simulata — dati precompilati ✓','success');
+    },300);
+  }catch(e){toast('JSON non valido','error');}
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT CSV
+// ═══════════════════════════════════════════════
+function exportCSV(){
+  const headers=['ID','Cliente','Targa','Email','Telefono','Posto','Entrata','Uscita','Importo','Stato','Note'];
+  const rows=bookings.map(b=>[b.id,b.cliente,b.targa,b.email,b.telefono,b.posto,b.entrata,b.uscita,b.importo,b.stato,b.note].map(v=>`"${v||''}"`).join(','));
+  const csv=[headers.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='prenotazioni_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  toast('CSV esportato','success');
+}
+
+// ═══════════════════════════════════════════════
+// LOADING
+// ═══════════════════════════════════════════════
+function showLoading(msg){
+  document.getElementById('loading-msg').textContent=msg||'Caricamento…';
+  document.getElementById('loading-overlay').classList.add('show');
+}
+function hideLoading(){ document.getElementById('loading-overlay').classList.remove('show'); }
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+let toastTimer;
+function toast(msg,type='info'){
+  const el=document.getElementById('toast');
+  const icons={success:'✅',error:'❌',info:'ℹ️'};
+  el.innerHTML=`${icons[type]||''} ${msg}`;
+  el.className='toast show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+checkSetup();
+
+// Scadenze: controlla ogni minuto
+setInterval(async()=>{
+  const now=new Date();
+  for(const b of bookings){
+    if(b.stat
